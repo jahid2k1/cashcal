@@ -1,0 +1,238 @@
+import os, zipfile, textwrap, json, shutil
+
+base="/mnt/data/bkash_cashout_calculator"
+if os.path.exists(base):
+    shutil.rmtree(base)
+os.makedirs(base)
+
+files = {
+"README.md": """# bKash Cash-Out Calculator
+
+Includes:
+- `android/` — native Android app project (Kotlin + Jetpack Compose)
+- `pwa/` — installable offline Progressive Web App
+
+The charge rate is editable. The calculator uses:
+maximum cash = balance / (1 + charge_rate / 1000)
+fee = cash × charge_rate / 1000
+
+Use the current applicable bKash rate when operating the calculator.
+""",
+"pwa/index.html": """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>bKash Cash-Out Calculator</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f4f5f7;color:#171717}
+main{max-width:430px;margin:auto;padding:20px 16px}.card{background:white;border-radius:18px;padding:18px;box-shadow:0 4px 18px #0001}
+h1{font-size:22px;margin:0 0 5px}.sub{color:#666;font-size:13px;margin-bottom:18px}
+label{display:block;font-weight:650;font-size:13px;margin:13px 0 6px}
+input{width:100%;height:50px;border:1px solid #ddd;border-radius:12px;padding:0 14px;font-size:17px}
+.buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+button{height:48px;border:0;border-radius:12px;font-size:16px;font-weight:700}.calc{background:#111827;color:white}.reset{background:#eee}
+.result{margin-top:16px;background:#f8f8fa;border-radius:14px;padding:15px}
+.big{font-size:31px;font-weight:800;margin:3px 0 10px}.row{display:flex;justify-content:space-between;padding:7px 0;font-size:14px}
+.note{font-size:12px;color:#777;line-height:1.45;margin-top:13px}
+</style>
+</head>
+<body>
+<main>
+<section class="card">
+<h1>Cash-Out Calculator</h1>
+<div class="sub">Maximum cash from the customer's available balance</div>
+<label for="balance">Customer balance (৳)</label>
+<input id="balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="10000">
+<label for="rate">Charge per ৳1,000</label>
+<input id="rate" type="number" inputmode="decimal" min="0" step="0.01" value="18.50">
+<div class="buttons"><button class="calc" id="calculate">Calculate</button><button class="reset" id="reset">Reset</button></div>
+<div class="result" aria-live="polite">
+<div style="font-size:12px;color:#777">Customer receives</div>
+<div class="big" id="cash">৳0.00</div>
+<div class="row"><span>Cash-out charge</span><strong id="fee">৳0.00</strong></div>
+<div class="row"><span>Total deducted</span><strong id="total">৳0.00</strong></div>
+</div>
+<div class="note">Enter the current applicable rate. This app does not verify bKash's current fee schedule.</div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function money(n){return "৳"+(Number.isFinite(n)?n:0).toFixed(2)}
+function calculate(){
+ const b=Math.max(0,Number($("balance").value)||0);
+ const r=Math.max(0,Number($("rate").value)||0);
+ const cash=b/(1+r/1000), fee=cash*r/1000;
+ $("cash").textContent=money(cash);$("fee").textContent=money(fee);$("total").textContent=money(cash+fee);
+}
+$("calculate").onclick=calculate;
+$("reset").onclick=()=>{$("balance").value="";$("rate").value="18.50";$("cash").textContent="৳0.00";$("fee").textContent="৳0.00";$("total").textContent="৳0.00";$("balance").focus()};
+$("balance").onkeydown=e=>{if(e.key==="Enter")calculate()};
+$("rate").onkeydown=e=>{if(e.key==="Enter")calculate()};
+if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
+</script>
+</body></html>
+""",
+"pwa/manifest.json": """{
+  "name":"bKash Cash-Out Calculator",
+  "short_name":"Cash-Out Calc",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#f4f5f7",
+  "theme_color":"#111827",
+  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+}""",
+"pwa/sw.js": """const CACHE="cashout-calc-v1";const ASSETS=["./","./index.html","./manifest.json","./icon.svg"];
+self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
+self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
+self.addEventListener("fetch",e=>e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request))));
+""",
+"pwa/icon.svg": """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#111827"/><text x="96" y="122" text-anchor="middle" font-family="Arial" font-size="76" font-weight="700" fill="white">৳</text></svg>""",
+
+"android/settings.gradle.kts": """pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+rootProject.name="BkashCashoutCalculator"
+include(":app")
+""",
+"android/build.gradle.kts": """plugins {
+    id("com.android.application") version "8.7.3" apply false
+    id("org.jetbrains.kotlin.android") version "2.0.21" apply false
+    id("org.jetbrains.kotlin.plugin.compose") version "2.0.21" apply false
+}
+""",
+"android/gradle.properties": """org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+android.useAndroidX=true
+kotlin.code.style=official
+""",
+"android/app/build.gradle.kts": """plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+}
+android { namespace="com.example.bkashcashout"; compileSdk=35
+    defaultConfig { applicationId="com.example.bkashcashout"; minSdk=23; targetSdk=35; versionCode=1; versionName="1.0" }
+}
+dependencies {
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    implementation("androidx.compose.material3:material3")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+}
+""",
+"android/app/src/main/AndroidManifest.xml": """<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<application android:theme="@style/AppTheme" android:label="Cash-Out Calculator" android:allowBackup="true" android:supportsRtl="true">
+<activity android:name=".MainActivity" android:exported="true">
+<intent-filter>
+<action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/>
+</intent-filter>
+</activity>
+</application>
+</manifest>
+""",
+"android/app/src/main/res/values/styles.xml": """<resources><style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar"><item name="android:fontFamily">sans</item><item name="android:colorAccent">#111827</item></style></resources>""",
+"android/app/src/main/java/com/example/bkashcashout/MainActivity.kt": """package com.example.bkashcashout
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent { CashOutApp() }
+    }
+}
+
+@Composable
+fun CashOutApp() {
+    var balance by remember { mutableStateOf("") }
+    var rate by remember { mutableStateOf("18.50") }
+    var cash by remember { mutableStateOf(0.0) }
+    var fee by remember { mutableStateOf(0.0) }
+
+    fun calculate() {
+        val b = balance.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+        val r = rate.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
+        cash = b / (1.0 + r / 1000.0)
+        fee = cash * r / 1000.0
+    }
+    fun money(v: Double) = "৳%.2f".format(v)
+
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Cash-Out Calculator", fontSize = 24.sp)
+                Text("Maximum cash from the customer's balance", color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                OutlinedTextField(
+                    value = balance, onValueChange = { balance = it },
+                    label = { Text("Customer balance (৳)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = rate, onValueChange = { rate = it },
+                    label = { Text("Charge per ৳1,000") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(onClick = { calculate() }, modifier = Modifier.weight(1f)) { Text("Calculate") }
+                    OutlinedButton(onClick = {
+                        balance = ""; rate = "18.50"; cash = 0.0; fee = 0.0
+                    }, modifier = Modifier.weight(1f)) { Text("Reset") }
+                }
+
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Customer receives", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(money(cash), fontSize = 32.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Cash-out charge"); Text(money(fee))
+                        }
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text("Total deducted"); Text(money(cash + fee))
+                        }
+                    }
+                }
+                Text("Use the current applicable bKash rate. The app does not verify the current fee schedule.",
+                    fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+"""
+}
+
+for path, content in files.items():
+    full=os.path.join(base,path)
+    os.makedirs(os.path.dirname(full),exist_ok=True)
+    with open(full,"w",encoding="utf-8") as f:f.write(content)
+
+# Add Gradle wrapper guidance file rather than bundling binaries.
+zip_path="/mnt/data/bkash_cashout_calculator.zip"
+with zipfile.ZipFile(zip_path,"w",zipfile.ZIP_DEFLATED) as z:
+    for root,dirs,fs in os.walk(base):
+        for fn in fs:
+            p=os.path.join(root,fn)
+            z.write(p,os.path.relpath(p,base))
+
+print(f"Created: {zip_path}")
