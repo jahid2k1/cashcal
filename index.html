@@ -28,7 +28,7 @@ button{height:48px;border:0;border-radius:12px;font-size:16px;font-weight:700}.c
 <label for="balance">Customer balance (৳)</label>
 <input id="balance" type="number" inputmode="decimal" min="0" step="0.01" placeholder="10000">
 <label for="rate">Charge per ৳1,000</label>
-<input id="rate" type="number" inputmode="decimal" min="0" step="0.01" value="18.50">
+<input id="rate" type="number" inputmode="decimal" min="0" step="0.01" value="13.95">
 <div class="buttons"><button class="calc" id="calculate">Calculate</button><button class="reset" id="reset">Reset</button></div>
 <div class="result" aria-live="polite">
 <div style="font-size:12px;color:#777">Customer receives</div>
@@ -49,7 +49,7 @@ function calculate(){
  $("cash").textContent=money(cash);$("fee").textContent=money(fee);$("total").textContent=money(cash+fee);
 }
 $("calculate").onclick=calculate;
-$("reset").onclick=()=>{$("balance").value="";$("rate").value="18.50";$("cash").textContent="৳0.00";$("fee").textContent="৳0.00";$("total").textContent="৳0.00";$("balance").focus()};
+$("reset").onclick=()=>{$("balance").value="";$("rate").value="13.95";$("cash").textContent="৳0.00";$("fee").textContent="৳0.00";$("total").textContent="৳0.00";$("balance").focus()};
 $("balance").onkeydown=e=>{if(e.key==="Enter")calculate()};
 $("rate").onkeydown=e=>{if(e.key==="Enter")calculate()};
 if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js"));
