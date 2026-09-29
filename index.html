@@ -50,7 +50,7 @@ function calculate(){
 }
 $("calculate").onclick=calculate;
 $("balance").oninput=calculate;
-$("rate").onchange=calculate;
+$("rate").oninput=calculate;
 $("reset").onclick=()=>{$("balance").value="";$("rate").value="13.95";$("cash").textContent="৳0.00";$("fee").textContent="৳0.00";$("total").textContent="৳0.00";$("balance").focus()};
 $("balance").onkeydown=e=>{if(e.key==="Enter")calculate()};
 $("rate").onkeydown=e=>{if(e.key==="Enter")calculate()};
