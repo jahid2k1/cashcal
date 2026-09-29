@@ -12,3 +12,20 @@ if (localStorage.getItem("rateVersion") !== RATE_VERSION) {
 }
 
 const rate = Number(localStorage.getItem("rate"));
+
+self.addEventListener("fetch", event => {
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() =>
+        caches.match(event.request)
+      )
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then(response =>
+      response || fetch(event.request)
+    )
+  );
+});
